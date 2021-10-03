@@ -39,10 +39,8 @@ class QLearningAgent(ReinforcementAgent):
           which returns legal actions for a state
     """
     def __init__(self, **args):
-        "You can initialize Q-values here..."
         ReinforcementAgent.__init__(self, **args)
-
-        "*** YOUR CODE HERE ***"
+        self.qvalues = util.Counter()
 
     def getQValue(self, state, action):
         """
@@ -50,9 +48,7 @@ class QLearningAgent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
+        return self.qvalues[(state, action)]
 
     def computeValueFromQValues(self, state):
         """
@@ -61,8 +57,10 @@ class QLearningAgent(ReinforcementAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return a value of 0.0.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        actions = self.getLegalActions(state)
+        if len(actions) <= 0:
+            return 0.
+        return max([self.getQValue(state, action) for action in actions])
 
     def computeActionFromQValues(self, state):
         """
@@ -70,8 +68,13 @@ class QLearningAgent(ReinforcementAgent):
           are no legal actions, which is the case at the terminal state,
           you should return None.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        actions = self.getLegalActions(state)
+        if len(actions) == 0:
+            return None
+        a = util.Counter()
+        for action in actions:
+            a[action] = self.getQValue(state, action)
+        return a.argMax()
 
     def getAction(self, state):
         """
@@ -84,13 +87,9 @@ class QLearningAgent(ReinforcementAgent):
           HINT: You might want to use util.flipCoin(prob)
           HINT: To pick randomly from a list, use random.choice(list)
         """
-        # Pick Action
-        legalActions = self.getLegalActions(state)
-        action = None
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
-        return action
+        if not util.flipCoin(self.epsilon):
+            return self.computeActionFromQValues(state)
+        return random.choice(self.getLegalActions(state))
 
     def update(self, state, action, nextState, reward):
         """
@@ -101,8 +100,10 @@ class QLearningAgent(ReinforcementAgent):
           NOTE: You should never call this function,
           it will be called on your behalf
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        self.qvalues[(state, action)] = (
+                (self.getQValue(state, action) * (1 - self.alpha)) +
+                (reward + self.discount * self.getValue(nextState)) * self.alpha
+        )
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
@@ -138,8 +139,8 @@ class PacmanQAgent(QLearningAgent):
         informs parent of action for Pacman.  Do not change or remove this
         method.
         """
-        action = QLearningAgent.getAction(self,state)
-        self.doAction(state,action)
+        action = QLearningAgent.getAction(self, state)
+        self.doAction(state, action)
         return action
 
 
@@ -164,15 +165,22 @@ class ApproximateQAgent(PacmanQAgent):
           Should return Q(state,action) = w * featureVector
           where * is the dotProduct operator
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        feat = self.featExtractor.getFeatures(state, action)
+        return self.weights * feat
+
+    @staticmethod
+    def scalarTimesVector(vec, scalar):
+        for k in vec:
+            vec[k] *= scalar
+        return vec
 
     def update(self, state, action, nextState, reward):
         """
            Should update your weights based on transition
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        difference = (reward + (self.discount * self.getValue(nextState))) - self.getQValue(state, action)
+        self.weights = self.weights +  self.scalarTimesVector(self.featExtractor.getFeatures(state, action), self.alpha * difference)
+        self.qvalues[(state, action)] += self.alpha * difference
 
     def final(self, state):
         "Called at the end of each game."
@@ -180,7 +188,5 @@ class ApproximateQAgent(PacmanQAgent):
         PacmanQAgent.final(self, state)
 
         # did we finish training?
-        if self.episodesSoFar == self.numTraining:
-            # you might want to print your weights here for debugging
-            "*** YOUR CODE HERE ***"
-            pass
+        # if self.episodesSoFar == self.numTraining:
+        #     print(self.weights)
